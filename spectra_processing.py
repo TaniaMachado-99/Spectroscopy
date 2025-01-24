@@ -17,17 +17,28 @@ from astropy.modeling import models
 from astropy import units as u
 import lineid_plot
 
-def LoadData(filename):
+def LoadData(filename, skiprows = 14):
 
-    df = pd.read_csv(filename, skiprows = 14, sep = '\t', header = None)
+    df = pd.read_csv(filename, skiprows = skiprows, sep = '\t', header = None)
     #print(df)
 
     df.columns = ['wavelength', 'intensity']
+
+    # Convert all data to strings first, then replace ',' with '.'
+    df['wavelength'] = df['wavelength'].astype(str).str.replace(',', '.')
+
     # Remove commas and convert to numeric values for each relevant column
-    df['wavelength'] = pd.to_numeric(df['wavelength'].str.replace(',', '.'))
-    df['intensity'] = pd.to_numeric(df['intensity'].str.replace(',', '.'), downcast='float')
+    df['wavelength'] = pd.to_numeric(df['wavelength'],downcast='float')
+
+    # Convert all data to strings first, then replace ',' with '.'
+    df['intensity'] = df['intensity'].astype(str).str.replace(',', '.')
+
+    # Convert the column back to numeric, coercing any invalid values to NaN
+    df['intensity'] = pd.to_numeric(df['intensity'],  downcast='float')
+
 
     return df
+
 
 def LoadAllSpectra(path, common_part):
     # Use glob to find all files matching the pattern
@@ -37,7 +48,9 @@ def LoadAllSpectra(path, common_part):
     # Load each file into a DataFrame and store in a list
     spectra = []
     for filename in files:
+        print(filename)
         df = LoadData(filename)
+
         spectra.append(df)
 
     return spectra
@@ -221,6 +234,79 @@ def ProcessDataEach(rawdata, background, dark, flat, subtract_background = False
         processed_data.append(processed_df)
 
     return processed_data
+
+def Build_Instrument_Response(data, reference, plot=False):
+    #required_columns = ['wavelength', 'intensity']
+
+    #get wavelengths of our data and of our reference
+    wavelength = data['wavelength'].values
+    intensity  =data['intensity'].values
+    wavelength_stand = reference['wavelength'].values
+    intensity_stand = reference['intensity'].values
+
+    #Mininum and maximum wavelength of Ocean View
+    minwavelength = 400.0
+    maxwavelength = np.max(wavelength)
+
+    #Mask reference data to have values only inside our ocean range
+    mask = (wavelength_stand >= minwavelength) & (wavelength_stand <= maxwavelength)
+
+    #mask our data to have values only above 350 mm
+    mask_2 =  (wavelength >= minwavelength) 
+    # print(mask, mask.shape)
+    # print(mask_2, mask_2.shape)
+
+    wavelength_truncated = wavelength_stand[mask]
+    wavelength = wavelength[mask_2]
+    intensity_truncated = intensity_stand[mask]
+    intensity = intensity[mask_2]
+    # print(intensity_truncated.shape)
+
+
+
+    #Interpolate the reference data
+    interpolate = CubicSpline(wavelength_truncated, intensity_truncated)
+
+    #Get the values of the reference data at our ocean wavelenghts
+    intensity_standard = interpolate(wavelength)
+
+    if plot==True:
+        fig1, axs1 = plt.subplots(2, 1, figsize=(12, 8))
+        PlotData(axs1[0], reference, 'Reference Data Raw', 'Raw data')
+        axs1[1].plot(wavelength_truncated,intensity_truncated)
+        plt.show()
+
+    #Save this data on a pandas dataframe
+    d = {'wavelength': wavelength, 'intensity': intensity}
+    norma_data_df = pd.DataFrame(data=d)
+    # print(norma_data_df['wavelength'])
+
+    d1 = {'wavelength': wavelength, 'intensity': intensity_standard}
+    norma_ref_df = pd.DataFrame(data=d1)
+
+    # Calculate scale factor and normalize observed counts
+    ourdata_sum = np.sum(intensity)
+    standard_sum = np.sum(intensity_standard)
+    scale_factor = standard_sum / ourdata_sum
+
+
+    norma_data_df['intensity'] *= scale_factor
+
+
+    ins_response = norma_data_df.copy()
+    
+    ins_response['intensity'] = norma_data_df['intensity'].values/norma_ref_df['intensity'].values
+    
+
+    if plot==True:
+        fig, axs = plt.subplots(2, 1, figsize=(12, 8))
+        PlotData(axs[0], norma_ref_df, 'Reference Data Normalized', 'Reference Spectrophotometric Standard')
+        PlotData(axs[0], norma_data_df, 'Data Normalized', 'Ocean Data Spectrophotometric Standard')
+        PlotData(axs[1], ins_response, 'Data/Ref', 'Instrument Response Function')
+        plt.show()
+
+
+    return ins_response
 
 def ProcessData(rawdata, background, dark):
     # Ensure the dataframes have the expected columns

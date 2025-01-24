@@ -2,9 +2,9 @@ from spectra_processing import *
 
 if __name__ == '__main__':
  
-    savefold = 'D:\PhD\\oceanview\\Spectra_stars\\'
-    path = 'D:\PhD\\oceanview\\16012025\\'
-    path_at = 'D:\PhD\\oceanview\\'
+    savefold = '/Users/taniamachado/Documents/PhD/Oceanview/Asiago_Jan16-18/plots/'
+    path = '/Users/taniamachado/Documents/PhD/Oceanview/Asiago_Jan16-18/'
+    path_at = '/Users/taniamachado/Documents/PhD/Oceanview/'
     file_at = 'FG_UGA_LGA_UCA_LCA_UEA_LEA_Attenuation_Data_2.xlsx'
 
     spectral_lines = {
@@ -77,31 +77,160 @@ if __name__ == '__main__':
 ]}
 
     threshold = 0.02
+
+    #=======================================================================================#
+    #                                  Zeta Cas Spectrophometric Standard                   #
+    #=======================================================================================#
+    #Reference Data Read
+    ref_spectra = LoadData(path_at + 'zetaCas_standard.txt',skiprows=1)
+    ref_spectra['wavelength']/=10
+
+    #######
+    
+    path_aux = path+'zetaCas/'
+    spectra = LoadAllSpectra(path_aux, 'zetaCas_data_HDX017711')
+    # print(spectra)
+
+    background = LoadAllSpectra(path_aux, 'zetaCas_background_HDX017711')
+
+    dark = LoadAllSpectra(path+'dark_16012025/', 'dark_16s_HDX017711')
+    ###print(spectra[0])
+    ###print(background[0])
+    #flat = LoadAllSpectra('/Users/taniamachado/Documents/PhD/Oceanview/Asiago_Jan16-18/Flats_16012025/', 'flat_16s_HDX017711')
+
+
+    fiber_at = LoadAttenuation(path_at, file_at)
+
+    data_atcor = CorrectAttenuation(spectra, fiber_at)
+
+    sum_spectra_raw = AddSpectra(spectra)
+    background_av = AverageSpectra(background)
+    ###print(background_av)
+    dark_av = AverageSpectra(dark)
+    ###print(dark_av)
+    #flat_subtr = ProcessDataEach(flat, None, dark_av, None, subtract_background = False, subtract_dark = True, divide_flat = False)
+    #flat_av = AverageSpectra(flat_subtr)
+
+
+
+    background_subtr = ProcessDataEach(background, None, dark_av, None, subtract_background = False, subtract_dark = True, divide_flat = False)
+    background_subtr_av = AverageSpectra(background_subtr)
+    #subtr = ProcessDataEach(spectra, background_subtr_av, dark_av, flat_av, subtract_background = True, subtract_dark = True, divide_flat = True)
+    subtr = ProcessDataEach(spectra, None, dark_av, None, subtract_background = False, subtract_dark = True, divide_flat = False)
+    ####print(f'subtr: \n {subtr}')
+
+    sum_spectra = AddSpectra(subtr)
+    inst_response = Build_Instrument_Response(sum_spectra, ref_spectra, plot=True)
+    wavelength = sum_spectra.loc[:, 'wavelength'].values
+    intensity = sum_spectra.loc[:, 'intensity'].values
+    
+    wavelength_truncated, intensity_truncated = DefSpectrumForLines(sum_spectra, 360, 1100)
+    
+    spec_norm = FitContinuum(15, wavelength_truncated, intensity_truncated, image = True)
+
+    DetectAndPlotLines(spec_norm, wavelength_truncated, spectral_lines, telluric_lines, threshold, title = 'zetaCas, x [m(V) = x]', save = False, path = savefold, name = "zetaCas_spectrum_lines.png")
+
+    fig, axs = plt.subplots(2, 1, figsize=(8, 8))
+    PlotData(axs[0], spectra[0], 'zetaCas', 'zetaCas raw data')
+    PlotData(axs[0], background_av, 'zetaCas', 'background')
+    PlotData(axs[0], dark_av, 'zetaCas', 'dark')
+    #PlotData(axs[0], flat_av, 'Alkaid, x [m(V) = x]', 'flat')
+    PlotData(axs[1], sum_spectra, None, 'zetaCas processed data')
+    plt.tight_layout()
+    plt.savefig(savefold+'/zetaCas.png', dpi = 600)
+
+    fig, axs = plt.subplots(1, 1, figsize=(12, 8))
+    PlotData(axs, sum_spectra, 'zetaCas, x [m(V) = x]', 'zetaCas processed data')
+    plt.savefig(savefold+'/zetaCas_spectrum.png', dpi = 600)
+    plt.show()
+    '''
     #=======================================================================================#
     #                                  Castor                                               #
     #=======================================================================================#
-
+    '''
 
     spectra = LoadAllSpectra(path, 'Castor_data_HDX017711')
     fig, axs = plt.subplots(1, 1, figsize=(12, 8))
     PlotData(axs, spectra[0], 'Castor', 'Castor')
     #plt.savefig(f'/media/astronomer/Transcend/PhD/oceanview/Spectra_stars/Castor_spectrum.png', dpi = 600)
     plt.show()
+    '''
 
+
+    #=======================================================================================#
+    #                                  Alkaid                                               #
+    #=======================================================================================#
+    '''
+    path_aux = path+'Alkaid/'
+    spectra = LoadAllSpectra(path_aux, 'Alkaid_spectrum_HDX017711')
+    # print(spectra)
+
+    background = LoadAllSpectra(path_aux, 'Alkaid_background_HDX017711')
+
+    dark = LoadAllSpectra(path+'dark/', 'dark_HDX017711')
+    ###print(spectra[0])
+    ###print(background[0])
+    flat = LoadAllSpectra('/Users/taniamachado/Documents/PhD/Oceanview/Asiago_Jan16-18/Flats_16012025/', 'flat_16s_HDX017711')
+
+
+    fiber_at = LoadAttenuation(path_at, file_at)
+
+    data_atcor = CorrectAttenuation(spectra, fiber_at)
+
+    sum_spectra_raw = AddSpectra(spectra)
+    background_av = AverageSpectra(background)
+    ###print(background_av)
+    dark_av = AverageSpectra(dark)
+    ###print(dark_av)
+    flat_subtr = ProcessDataEach(flat, None, dark_av, None, subtract_background = False, subtract_dark = True, divide_flat = False)
+    flat_av = AverageSpectra(flat_subtr)
+
+    fig, axs = plt.subplots(1, 1, figsize=(12, 8))
+    PlotData(axs, flat_av, 'Flat', 'Alkaid Flat')
+
+    background_subtr = ProcessDataEach(background, None, dark_av, None, subtract_background = False, subtract_dark = True, divide_flat = False)
+    background_subtr_av = AverageSpectra(background_subtr)
+    #subtr = ProcessDataEach(spectra, background_subtr_av, dark_av, flat_av, subtract_background = True, subtract_dark = True, divide_flat = True)
+    subtr = ProcessDataEach(spectra, None, dark_av, flat_av, subtract_background = False, subtract_dark = True, divide_flat = True)
+    ####print(f'subtr: \n {subtr}')
+
+    sum_spectra = AddSpectra(subtr)
+    wavelength = sum_spectra.loc[:, 'wavelength'].values
+    intensity = sum_spectra.loc[:, 'intensity'].values
+
+    wavelength_truncated, intensity_truncated = DefSpectrumForLines(sum_spectra, 360, 1100)
+
+    spec_norm = FitContinuum(15, wavelength_truncated, intensity_truncated, image = True)
+
+    DetectAndPlotLines(spec_norm, wavelength_truncated, spectral_lines, telluric_lines, threshold, title = 'Alkaid, x [m(V) = x]', save = False, path = savefold, name = "Alkaid_spectrum_lines.png")
+
+    fig, axs = plt.subplots(2, 1, figsize=(8, 8))
+    PlotData(axs[0], spectra[0], 'Alkaid', 'Alkaid raw data')
+    PlotData(axs[0], background_av, 'Alkaid', 'background')
+    PlotData(axs[0], dark_av, 'Alkaid', 'dark')
+    PlotData(axs[0], flat_av, 'Alkaid, x [m(V) = x]', 'flat')
+    PlotData(axs[1], sum_spectra, None, 'Alkaid processed data')
+    plt.tight_layout()
+    plt.savefig(savefold+'/Alkaid.png', dpi = 600)
+
+    # fig, axs = plt.subplots(1, 1, figsize=(12, 8))
+    # PlotData(axs, sum_spectra, 'Alkaid, x [m(V) = x]', 'Alkaid processed data')
+    # plt.savefig(savefold+'/Alkaid_spectrum.png', dpi = 600)
+    # plt.show()
     #=======================================================================================#
     #                                  Capella                                               #
     #=======================================================================================#
+    
+    path_aux = path+'Capella/'
+    spectra = LoadAllSpectra(path_aux, 'Capella_data_HDX017711')
+    # print(spectra)
 
+    background = LoadAllSpectra(path_aux, 'Capella_background_HDX017711')
 
-    spectra = LoadAllSpectra(path, 'Capella_data_HDX017711')
-    ###print(spectra)
-
-    background = LoadAllSpectra(path, 'Capella_background_HDX017711')
-
-    dark = LoadAllSpectra(path, 'dark_1s_HDX017711')
+    dark = LoadAllSpectra(path+'dark/', 'dark_HDX017711')
     ###print(spectra[0])
     ###print(background[0])
-    flat = LoadAllSpectra(path, 'flat_1s_HDX017711')
+    flat = LoadAllSpectra(path+'flat/', 'flat_HDX017711')
 
     fiber_at = LoadAttenuation(path_at, file_at)
 
@@ -131,20 +260,20 @@ if __name__ == '__main__':
 
     DetectAndPlotLines(spec_norm, wavelength_truncated, spectral_lines, telluric_lines, threshold, title = 'Capella, α Aurigae [m(V) = 0.08]', save = False, path = savefold, name = "Capella_spectrum_lines.png")
 
-    #fig, axs = plt.subplots(2, 1, figsize=(8, 8))
-    #PlotData(axs[0], spectra[0], 'Capella', 'Capella raw data')
-    #PlotData(axs[0], background_av, 'Capella', 'background')
-    #PlotData(axs[0], dark_av, 'Capella', 'dark')
-    #PlotData(axs[0], flat_av, 'Capella, α Aurigae [m(V) = 0.08]', 'flat')
-    #PlotData(axs[1], sum_spectra, None, 'Capella processed data')
-    #plt.tight_layout()
-    #plt.savefig(f'/media/astronomer/Transcend/PhD/oceanview/Spectra_stars/Capella.png', dpi = 600)
+    fig, axs = plt.subplots(2, 1, figsize=(8, 8))
+    PlotData(axs[0], spectra[0], 'Capella', 'Capella raw data')
+    PlotData(axs[0], background_av, 'Capella', 'background')
+    PlotData(axs[0], dark_av, 'Capella', 'dark')
+    PlotData(axs[0], flat_av, 'Capella, α Aurigae [m(V) = 0.08]', 'flat')
+    PlotData(axs[1], sum_spectra, None, 'Capella processed data')
+    plt.tight_layout()
+    plt.savefig(f'/media/astronomer/Transcend/PhD/oceanview/Spectra_stars/Capella.png', dpi = 600)
 
-    #fig, axs = plt.subplots(1, 1, figsize=(12, 8))
-    #PlotData(axs, sum_spectra, 'Capella, α Aurigae [m(V) = 0.08]', 'Capella processed data')
-    #plt.savefig(f'/media/astronomer/Transcend/PhD/oceanview/Spectra_stars/Capella_spectrum.png', dpi = 600)
-    #plt.show()
-
+    fig, axs = plt.subplots(1, 1, figsize=(12, 8))
+    PlotData(axs, sum_spectra, 'Capella, α Aurigae [m(V) = 0.08]', 'Capella processed data')
+    plt.savefig(f'/media/astronomer/Transcend/PhD/oceanview/Spectra_stars/Capella_spectrum.png', dpi = 600)
+    plt.show()
+    '''
     #=======================================================================================#
     #                                  HR6212                                               #
     #=======================================================================================#
